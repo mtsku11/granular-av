@@ -707,19 +707,50 @@ async function createInputSession(
 
 async function createCameraSession(preset: QualityPreset, onStatus?: (status: string) => void): Promise<GranularInputSession> {
   onStatus?.('Requesting camera + mic…');
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: {
-      facingMode: 'user',
-      width: { ideal: preset.captureWidth },
-      height: { ideal: preset.captureHeight },
-    },
-    audio: {
-      channelCount: 1,
-      echoCancellation: false,
-      noiseSuppression: false,
-      autoGainControl: false,
-    },
-  });
+  const preferredVideoConstraints: MediaTrackConstraints = {
+    facingMode: 'user',
+    width: { ideal: preset.captureWidth },
+    height: { ideal: preset.captureHeight },
+  };
+  const preferredAudioConstraints: MediaTrackConstraints = {
+    channelCount: 1,
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false,
+  };
+
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: preferredVideoConstraints,
+      audio: preferredAudioConstraints,
+    });
+  } catch (error) {
+    if (!isMediaConstraintError(error)) {
+      throw error;
+    }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: preset.captureWidth },
+          height: { ideal: preset.captureHeight },
+        },
+        audio: true,
+      });
+    } catch (fallbackError) {
+      if (!isMediaConstraintError(fallbackError)) {
+        throw fallbackError;
+      }
+      onStatus?.('Mic unavailable, using camera only…');
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: preset.captureWidth },
+          height: { ideal: preset.captureHeight },
+        },
+        audio: false,
+      });
+    }
+  }
 
   onStatus?.('Opening live input…');
   const video = createHiddenVideoElement();
@@ -758,6 +789,15 @@ async function createCameraSession(preset: QualityPreset, onStatus?: (status: st
       video.srcObject = null;
     },
   };
+}
+
+function isMediaConstraintError(error: unknown) {
+  if (!(error instanceof DOMException)) return false;
+  return (
+    error.name === 'NotFoundError'
+    || error.name === 'OverconstrainedError'
+    || error.name === 'ConstraintNotSatisfiedError'
+  );
 }
 
 async function createFileSession(file: File, onStatus?: (status: string) => void): Promise<GranularInputSession> {

@@ -47,7 +47,7 @@ void main() {
   float freezeLock = smoothstep(0.48, 0.86, u_freeze);
   float nextAge = previous.r + u_deltaTime / previousDurationSeconds;
   float expired = 1.0 - step(nextAge, 0.995);
-  float active = wasActive * (1.0 - expired);
+  float isActive = wasActive * (1.0 - expired);
 
   vec2 seedPoint = cell + vec2(u_time * 0.00037, u_time * 0.00091);
   float triggerNoise = hash12(seedPoint + vec2(13.1, 9.7));
@@ -57,7 +57,7 @@ void main() {
   float targetActiveFraction = mix(0.1, 0.46, densityNorm) * modeMultiplier();
   targetActiveFraction *= 0.78 + u_intensity * 0.34 + u_rms * 0.22 + u_clickImpulse * 0.28 + freezeLock * 0.12;
   float spawnProbability = clamp(targetActiveFraction * u_deltaTime / baseDurationSeconds, 0.0, 0.72);
-  float canRespawn = 1.0 - active;
+  float canRespawn = 1.0 - isActive;
   float shouldSpawn = canRespawn * step(triggerNoise, spawnProbability);
 
   float durationJitter = mix(0.72, 1.58, hash12(seedPoint + vec2(4.0, 19.0)));
