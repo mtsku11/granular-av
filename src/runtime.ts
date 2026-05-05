@@ -204,6 +204,8 @@ export async function bootGranularAV({
     workletNode.connect(outputGain);
     outputGain.connect(audioContext.destination);
     await inputSession.start();
+    const activeAudioContext = audioContext;
+    const activeInputSession = inputSession;
 
     let activeGrains = 0;
     workletNode.port.onmessage = (event: MessageEvent<{ type?: string; activeGrains?: number }>) => {
@@ -544,21 +546,19 @@ export async function bootGranularAV({
 
     const onResize = () => resize();
     const onVisibilityChange = () => {
-      const ctx = audioContext;
-      if (!ctx) return;
       const hidden = document.hidden;
       shouldClearFeedback = true;
-      void Promise.resolve(inputSession?.setHidden(hidden)).catch(() => {});
+      void Promise.resolve(activeInputSession.setHidden(hidden)).catch(() => {});
       if (hidden) {
-        void ctx.suspend();
+        void activeAudioContext.suspend();
         return;
       }
 
-      if (ctx.state === 'suspended') {
-        void ctx.resume().catch(() => {});
+      if (activeAudioContext.state === 'suspended') {
+        void activeAudioContext.resume().catch(() => {});
       }
     };
-    const detachInputEnded = inputSession.subscribeToEnded((message) => {
+    const detachInputEnded = activeInputSession.subscribeToEnded((message) => {
       if (stopped) return;
       const runtimeError = new Error(message);
       onStatus?.(message);
@@ -583,8 +583,6 @@ export async function bootGranularAV({
         document.removeEventListener('visibilitychange', onVisibilityChange);
         window.cancelAnimationFrame(rafId);
 
-        const session = inputSession;
-        const ctx = audioContext;
         const cleanupErrors: Error[] = [];
         const collectCleanupError = (error: unknown, fallbackMessage: string) => {
           cleanupErrors.push(error instanceof Error ? error : new Error(fallbackMessage));
@@ -619,14 +617,14 @@ export async function bootGranularAV({
         }
 
         try {
-          await session?.stop();
+          await activeInputSession.stop();
         } catch (error) {
-          collectCleanupError(error, `Unable to stop ${session?.label ?? 'input'}.`);
+          collectCleanupError(error, `Unable to stop ${activeInputSession.label}.`);
         }
 
         try {
-          if (ctx && ctx.state !== 'closed') {
-            await ctx.close();
+          if (activeAudioContext.state !== 'closed') {
+            await activeAudioContext.close();
           }
         } catch (error) {
           collectCleanupError(error, 'Unable to close the audio context.');
@@ -882,8 +880,7 @@ async function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs: number, mes
 async function resumeAudioContext(audioContext: AudioContext) {
   if (audioContext.state === 'running') return;
   await audioContext.resume();
-  const state: string = audioContext.state;
-  if (state !== 'running') {
+  if (audioContext.state === 'closed' || audioContext.state === 'suspended' || audioContext.state === 'interrupted') {
     throw new Error('Audio output is still suspended. Click start again to unlock it.');
   }
 }
