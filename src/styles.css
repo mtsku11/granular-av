@@ -1,0 +1,692 @@
+.granular-av-shell {
+  --granular-pointer-x: 50%;
+  --granular-pointer-y: 50%;
+  --granular-pointer-down: 0;
+  --granular-pointer-pulse: 0;
+  position: relative;
+  min-height: 100vh;
+  overflow: clip;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(213, 163, 100, 0.14), transparent 32%),
+    radial-gradient(circle at 80% 18%, rgba(125, 141, 122, 0.14), transparent 30%),
+    linear-gradient(180deg, #050608 0%, #090a0d 48%, #040506 100%);
+  touch-action: none;
+}
+
+.granular-av-shell::before,
+.granular-av-shell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.granular-av-shell::before {
+  background:
+    linear-gradient(125deg, rgba(255, 255, 255, 0.03), transparent 35%),
+    radial-gradient(circle at var(--granular-pointer-x) var(--granular-pointer-y), rgba(213, 163, 100, 0.16), transparent 16%);
+  opacity: calc(0.55 + var(--granular-pointer-down) * 0.2);
+}
+
+.granular-av-shell::after {
+  background:
+    linear-gradient(180deg, rgba(4, 5, 6, 0.08), rgba(4, 5, 6, 0.68)),
+    radial-gradient(circle at center, transparent 42%, rgba(3, 3, 4, 0.52) 100%);
+}
+
+.granular-av-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: none;
+}
+
+.granular-av-atmosphere,
+.granular-av-vignette,
+.granular-av-reticle,
+.granular-av-hud,
+.granular-av-statusbar,
+.granular-av-overlay,
+.granular-av-debug,
+.granular-av-dock {
+  position: absolute;
+}
+
+.granular-av-atmosphere,
+.granular-av-vignette {
+  inset: 0;
+  pointer-events: none;
+}
+
+.granular-av-atmosphere {
+  background:
+    radial-gradient(circle at 50% 85%, rgba(213, 163, 100, 0.1), transparent 30%),
+    radial-gradient(circle at 22% 78%, rgba(125, 141, 122, 0.12), transparent 26%);
+  mix-blend-mode: screen;
+}
+
+.granular-av-vignette {
+  background: radial-gradient(circle at center, transparent 44%, rgba(2, 2, 3, 0.74) 100%);
+}
+
+.granular-av-reticle {
+  left: var(--granular-pointer-x);
+  top: var(--granular-pointer-y);
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-left: -1.75rem;
+  margin-top: -1.75rem;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(calc(0.82 + var(--granular-pointer-down) * 0.22 + var(--granular-pointer-pulse) * 0.08));
+  transition: opacity 140ms ease, transform 180ms ease;
+}
+
+.granular-av-shell[data-ready='true'][data-pointer-visible='true'] .granular-av-reticle {
+  opacity: 1;
+}
+
+.granular-av-reticle span,
+.granular-av-reticle span::before,
+.granular-av-reticle span::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+}
+
+.granular-av-reticle span {
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    0 0 0 1px rgba(213, 163, 100, 0.2) inset,
+    0 0 24px rgba(213, 163, 100, 0.18);
+}
+
+.granular-av-reticle span::before {
+  inset: 0.75rem;
+  border: 1px solid rgba(125, 141, 122, 0.5);
+}
+
+.granular-av-reticle span::after {
+  inset: 1.4rem;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.granular-av-hud {
+  inset: 0 0 auto 0;
+  z-index: 3;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem;
+  pointer-events: none;
+}
+
+.granular-av-badge,
+.granular-av-actions,
+.granular-av-statusbar,
+.granular-av-overlay__panel,
+.granular-av-debug,
+.granular-av-dock__panel,
+.granular-av-handle {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 10, 12, 0.72);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+}
+
+.granular-av-badge {
+  max-width: 18rem;
+  padding: 0.72rem 0.85rem 0.8rem;
+}
+
+.granular-av-kicker {
+  font-size: 0.67rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.granular-av-badge h1,
+.granular-av-overlay h2 {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-weight: 400;
+  line-height: 1;
+  color: #FFFFFF;
+}
+
+.granular-av-badge h1 {
+  margin-top: 0.35rem;
+  font-size: clamp(1rem, 1.8vw, 1.25rem);
+}
+
+.granular-av-badge p:last-child {
+  margin-top: 0.4rem;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.granular-av-actions {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem;
+  align-self: flex-start;
+}
+
+.granular-av-action,
+.granular-av-launch,
+.granular-av-segment,
+.granular-av-handle {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.02);
+  color: #FFFFFF;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 0.67rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    transform 140ms ease,
+    color 140ms ease;
+}
+
+.granular-av-action,
+.granular-av-segment {
+  padding: 0.68rem 0.82rem;
+}
+
+.granular-av-action:disabled,
+.granular-av-launch:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.granular-av-action:hover,
+.granular-av-launch:hover,
+.granular-av-segment:hover,
+.granular-av-handle:hover {
+  border-color: rgba(213, 163, 100, 0.42);
+  background: rgba(213, 163, 100, 0.08);
+}
+
+.granular-av-action--primary,
+.granular-av-launch,
+.granular-av-segment.is-active,
+.granular-av-handle {
+  border-color: rgba(213, 163, 100, 0.36);
+  background:
+    linear-gradient(180deg, rgba(213, 163, 100, 0.18), rgba(213, 163, 100, 0.08)),
+    rgba(255, 255, 255, 0.03);
+}
+
+.granular-av-action:active,
+.granular-av-launch:active,
+.granular-av-segment:active,
+.granular-av-handle:active {
+  transform: translateY(1px);
+}
+
+.granular-av-statusbar {
+  z-index: 3;
+  left: 0.9rem;
+  bottom: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  max-width: min(42rem, calc(100vw - 1.8rem));
+  padding: 0.5rem 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(7, 9, 11, 0.64);
+  backdrop-filter: blur(16px);
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.68);
+  pointer-events: none;
+}
+
+.granular-av-overlay {
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(5, 6, 8, 0.28);
+  transition: opacity 220ms ease, visibility 220ms ease;
+}
+
+.granular-av-overlay--hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.granular-av-overlay__panel {
+  width: min(100%, 26rem);
+  padding: 1rem 1rem 0.95rem;
+}
+
+.granular-av-overlay h2 {
+  margin-top: 0.5rem;
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+}
+
+.granular-av-overlay__copy {
+  margin-top: 0.7rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.granular-av-overlay__status {
+  margin-top: 0.7rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.granular-av-overlay__quality,
+.granular-av-debug__group {
+  margin-top: 1rem;
+}
+
+.granular-av-overlay__quality > span,
+.granular-av-debug__label {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.54);
+}
+
+.granular-av-segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.granular-av-file-picker {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+}
+
+.granular-av-file-picker--inline {
+  margin-top: 0.75rem;
+}
+
+.granular-av-file-picker__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.granular-av-file-picker__label {
+  min-width: 0;
+  padding: 0.72rem 0.78rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.7rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.granular-av-file-picker__label.is-selected {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.granular-av-overlay__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.granular-av-launch {
+  padding: 0.82rem 1.08rem;
+}
+
+.granular-av-launch:disabled {
+  opacity: 0.64;
+  cursor: wait;
+}
+
+.granular-av-overlay__hint,
+.granular-av-control__description,
+.granular-av-shortcuts,
+.granular-av-error {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.granular-av-overlay__hint,
+.granular-av-shortcuts {
+  font-size: 0.66rem;
+  line-height: 1.5;
+}
+
+.granular-av-error {
+  margin-top: 0.9rem;
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+.granular-av-debug {
+  top: 4.5rem;
+  right: 0.9rem;
+  z-index: 4;
+  width: min(22rem, calc(100vw - 1.6rem));
+  padding: 0.85rem;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-0.5rem);
+  transition: opacity 160ms ease, transform 160ms ease, visibility 160ms ease;
+}
+
+.granular-av-debug.is-open {
+  pointer-events: auto;
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.granular-av-debug__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.granular-av-debug__metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.granular-av-metric {
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.granular-av-metric span {
+  display: block;
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.granular-av-metric strong {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: #FFFFFF;
+}
+
+.granular-av-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.granular-av-dock {
+  inset: auto 0 0 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 0.8rem 0.8rem;
+  pointer-events: none;
+}
+
+.granular-av-dock__handle {
+  margin-bottom: 0.55rem;
+  pointer-events: auto;
+}
+
+.granular-av-handle {
+  padding: 0.68rem 0.95rem;
+}
+
+.granular-av-dock__panel {
+  width: min(100%, 42rem);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.9rem;
+  padding: 0.85rem 0.9rem;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(1rem);
+  visibility: hidden;
+  transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
+}
+
+.granular-av-dock.is-open .granular-av-dock__panel {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+}
+
+.granular-av-controls {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.granular-av-control {
+  padding: 0.75rem 0.82rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.granular-av-control__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.granular-av-control__header--stacked {
+  justify-content: flex-start;
+}
+
+.granular-av-control__label {
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #FFFFFF;
+}
+
+.granular-av-control__description {
+  margin-top: 0.3rem;
+  font-size: 0.66rem;
+  line-height: 1.45;
+}
+
+.granular-av-control__value {
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.granular-av-control__body {
+  margin-top: 0.8rem;
+}
+
+.granular-av-slider {
+  position: relative;
+  margin-top: 0.8rem;
+  height: 2rem;
+  touch-action: none;
+  cursor: ew-resize;
+}
+
+.granular-av-slider__track,
+.granular-av-slider__fill {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 0.45rem;
+  border-radius: 999px;
+  transform: translateY(-50%);
+}
+
+.granular-av-slider__track {
+  width: 100%;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.16)),
+    rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.granular-av-slider__fill {
+  background: linear-gradient(90deg, rgba(125, 141, 122, 0.72), rgba(213, 163, 100, 0.92));
+  box-shadow: 0 0 20px rgba(213, 163, 100, 0.16);
+}
+
+.granular-av-slider__thumb {
+  position: absolute;
+  top: 50%;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.48), transparent 32%),
+    rgba(12, 14, 16, 0.92);
+  transform: translate(-50%, -50%);
+  box-shadow:
+    0 0 0 1px rgba(213, 163, 100, 0.16) inset,
+    0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+.granular-av-slider:focus-visible {
+  outline: 2px solid rgba(213, 163, 100, 0.7);
+  outline-offset: 6px;
+}
+
+.granular-av-dock__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  justify-content: flex-end;
+}
+
+@media (max-width: 960px) {
+  .granular-av-hud {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .granular-av-actions {
+    justify-content: flex-end;
+  }
+
+  .granular-av-dock__panel {
+    grid-template-columns: 1fr;
+  }
+
+  .granular-av-dock__actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 720px) {
+  .granular-av-hud,
+  .granular-av-statusbar,
+  .granular-av-overlay,
+  .granular-av-debug,
+  .granular-av-dock {
+    left: 0;
+    right: 0;
+  }
+
+  .granular-av-hud {
+    padding: 0.75rem;
+  }
+
+  .granular-av-badge h1 {
+    font-size: 0.98rem;
+  }
+
+  .granular-av-actions {
+    flex-wrap: wrap;
+  }
+
+  .granular-av-statusbar {
+    left: 1rem;
+    right: 1rem;
+    bottom: 4.8rem;
+    justify-content: space-between;
+    gap: 0.5rem;
+    max-width: none;
+  }
+
+  .granular-av-debug {
+    top: auto;
+    right: 1rem;
+    left: 1rem;
+    bottom: 9.6rem;
+    width: auto;
+  }
+
+  .granular-av-overlay__panel,
+  .granular-av-dock__panel {
+    padding: 0.9rem;
+  }
+
+  .granular-av-overlay__footer {
+    align-items: stretch;
+  }
+
+  .granular-av-launch {
+    width: 100%;
+  }
+
+  .granular-av-file-picker {
+    grid-template-columns: 1fr;
+  }
+
+  .granular-av-dock {
+    padding: 0 0.6rem 0.6rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .granular-av-reticle,
+  .granular-av-overlay,
+  .granular-av-debug,
+  .granular-av-dock__panel,
+  .granular-av-action,
+  .granular-av-launch,
+  .granular-av-segment,
+  .granular-av-handle {
+    transition: none;
+  }
+}
