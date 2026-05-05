@@ -36,7 +36,7 @@ const int HISTORY_COUNT = 8;
 const float PI = 3.14159265359;
 
 struct GrainState {
-  float active;
+  float isActive;
   float age;
   float duration;
   float sourceAge;
@@ -105,15 +105,15 @@ vec2 rotateAround(vec2 point, vec2 center, float angle) {
 GrainState readGrainState(vec2 cellId) {
   vec2 wrappedCell = mod(cellId, u_grainStateResolution);
   vec4 encoded = texture(u_grainState, (wrappedCell + 0.5) / u_grainStateResolution);
-  float active = step(0.002, encoded.a) * step(encoded.r, 0.995);
+  float isActive = step(0.002, encoded.a) * step(encoded.r, 0.995);
   float duration = mix(0.025, 0.305, encoded.g);
   return GrainState(
-    active,
+    isActive,
     encoded.r,
     duration,
     encoded.b,
     encoded.a,
-    hann(encoded.r) * active
+    hann(encoded.r) * isActive
   );
 }
 
