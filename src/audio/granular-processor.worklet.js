@@ -1,7 +1,8 @@
 const MAX_GRAINS = 40;
 
 class GranularProcessor extends AudioWorkletProcessor {
-  buffer;
+  bufferLeft;
+  bufferRight;
   writeHead = 0;
   grainCountdown = 0;
   grains;
@@ -19,6 +20,8 @@ class GranularProcessor extends AudioWorkletProcessor {
     focusY: 0.5,
     burst: 0,
     visualMode: 0,
+    interactionActive: 0,
+    liveMonitor: 0,
   };
   freezeAnchor = 0;
   freezeLatched = false;
@@ -27,7 +30,9 @@ class GranularProcessor extends AudioWorkletProcessor {
 
   constructor() {
     super();
-    this.buffer = new Float32Array(Math.floor(globalThis.sampleRate * 4));
+    const ringSize = Math.floor(globalThis.sampleRate * 4);
+    this.bufferLeft = new Float32Array(ringSize);
+    this.bufferRight = new Float32Array(ringSize);
     this.grains = Array.from({ length: MAX_GRAINS }, () => ({
       startIndex: 0,
       duration: 1,
@@ -42,7 +47,8 @@ class GranularProcessor extends AudioWorkletProcessor {
         this.params = { ...this.params, ...message.params };
       }
       if (message?.type === 'reset') {
-        this.buffer.fill(0);
+        this.bufferLeft.fill(0);
+        this.bufferRight.fill(0);
         this.activeGrainCount = 0;
         this.grainCountdown = 0;
         this.freezeAnchor = 0;
@@ -64,24 +70,24 @@ class GranularProcessor extends AudioWorkletProcessor {
   }
 
   wrap(index) {
-    const size = this.buffer.length;
+    const size = this.bufferLeft.length;
     return ((index % size) + size) % size;
   }
 
   mixWrapped(a, b, t) {
-    const size = this.buffer.length;
+    const size = this.bufferLeft.length;
     let delta = b - a;
     if (delta > size * 0.5) delta -= size;
     if (delta < -size * 0.5) delta += size;
     return this.wrap(a + delta * t);
   }
 
-  readBuffer(position) {
+  readBuffer(buffer, position) {
     const indexA = Math.floor(position);
     const indexB = this.wrap(indexA + 1);
     const frac = position - indexA;
-    const sampleA = this.buffer[this.wrap(indexA)] ?? 0;
-    const sampleB = this.buffer[indexB] ?? 0;
+    const sampleA = buffer[this.wrap(indexA)] ?? 0;
+    const sampleB = buffer[indexB] ?? 0;
     return sampleA + (sampleB - sampleA) * frac;
   }
 
@@ -126,7 +132,7 @@ class GranularProcessor extends AudioWorkletProcessor {
       -1,
       1,
     );
-    const gain = (mode === 0 ? 0.13 : 0.15 + Math.random() * 0.05) * (0.48 + this.params.intensity * 0.46);
+    const gain = (mode === 0 ? 0.2 : 0.22 + Math.random() * 0.07) * (0.58 + this.params.intensity * 0.52);
 
     const grain = this.grains[this.activeGrainCount];
     this.activeGrainCount += 1;
@@ -159,25 +165,35 @@ class GranularProcessor extends AudioWorkletProcessor {
   }
 
   process(inputs, outputs) {
-    const input = inputs[0]?.[0];
+    const inputLeft = inputs[0]?.[0];
+    const inputRight = inputs[0]?.[1] ?? inputLeft;
     const outputLeft = outputs[0]?.[0];
     const outputRight = outputs[0]?.[1] ?? outputLeft;
     if (!outputLeft || !outputRight) return true;
 
     const density = this.clamp(this.params.density, 2, 36);
     const spawnInterval = Math.max(8, Math.floor(globalThis.sampleRate / density));
-    const wetMix = this.clamp(this.params.wet, 0, 1);
-    const dryMix = 1 - wetMix * 0.78;
+    const interactionActive = this.clamp(this.params.interactionActive, 0, 1);
+    const liveMonitor = this.clamp(this.params.liveMonitor, 0, 1);
+    const wetMix = this.clamp(this.params.wet * interactionActive, 0, 1);
+    const activeDryMix = this.clamp(1 - this.params.wet * 1.08, 0.04, 0.38);
+    const dryMix = this.clamp(
+      liveMonitor * (1 - interactionActive) + activeDryMix * interactionActive * (0.18 + liveMonitor * 0.82),
+      0,
+      1,
+    );
     const overlapTarget = Math.max(1, density * this.params.grainMs / 1000);
-    const wetTrim = (0.7 + this.params.intensity * 0.18) / Math.sqrt(overlapTarget);
+    const wetTrim = (1.16 + this.params.intensity * 0.34) / Math.sqrt(overlapTarget);
 
     for (let sampleIndex = 0; sampleIndex < outputLeft.length; sampleIndex += 1) {
-      const inputSample = input?.[sampleIndex] ?? 0;
-      this.buffer[this.writeHead] = inputSample;
+      const inLeft = inputLeft?.[sampleIndex] ?? 0;
+      const inRight = inputRight?.[sampleIndex] ?? inLeft;
+      this.bufferLeft[this.writeHead] = inLeft;
+      this.bufferRight[this.writeHead] = inRight;
       this.writeHead = this.wrap(this.writeHead + 1);
 
       this.grainCountdown -= 1;
-      if (this.grainCountdown <= 0) {
+      if (this.grainCountdown <= 0 && interactionActive > 0.02) {
         this.spawnGrain();
         if (Math.round(this.params.visualMode) === 0 && Math.random() < 0.46 + this.params.intensity * 0.18) {
           this.spawnGrain();
@@ -202,7 +218,10 @@ class GranularProcessor extends AudioWorkletProcessor {
         }
 
         const envelope = 0.5 - 0.5 * Math.cos(progress * Math.PI * 2);
-        const sample = this.readBuffer(grain.startIndex + grain.position * grain.rate);
+        const readPosition = grain.startIndex + grain.position * grain.rate;
+        const sampleL = this.readBuffer(this.bufferLeft, readPosition);
+        const sampleR = this.readBuffer(this.bufferRight, readPosition);
+        const sample = (sampleL + sampleR) * 0.5;
         const amplitude = sample * envelope * grain.gain;
         const panLeft = Math.cos((grain.pan * 0.5 + 0.5) * Math.PI * 0.5);
         const panRight = Math.sin((grain.pan * 0.5 + 0.5) * Math.PI * 0.5);
@@ -214,8 +233,8 @@ class GranularProcessor extends AudioWorkletProcessor {
 
       const wetLeft = left * wetTrim;
       const wetRight = right * wetTrim;
-      outputLeft[sampleIndex] = this.softClip(inputSample * dryMix + wetLeft * wetMix);
-      outputRight[sampleIndex] = this.softClip(inputSample * dryMix + wetRight * wetMix);
+      outputLeft[sampleIndex] = this.softClip(inLeft * dryMix + wetLeft * wetMix);
+      outputRight[sampleIndex] = this.softClip(inRight * dryMix + wetRight * wetMix);
     }
 
     this.meterCountdown += outputLeft.length;
@@ -224,7 +243,7 @@ class GranularProcessor extends AudioWorkletProcessor {
       this.meterCountdown = 0;
     }
 
-    return !(this.stopping && this.activeGrainCount === 0 && !input);
+    return !(this.stopping && this.activeGrainCount === 0 && !inputLeft && !inputRight);
   }
 }
 

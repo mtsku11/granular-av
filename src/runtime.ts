@@ -182,6 +182,7 @@ export async function bootGranularAV({
     let grainStateWidth = initialPreset.grainStateWidth;
     let grainStateHeight = initialPreset.grainStateHeight;
     let historyWriteIndex = 0;
+    let historyPrimed = false;
     let shouldClearFeedback = true;
     let shouldClearGrainState = true;
     await resumeAudioContext(audioContext);
@@ -198,6 +199,10 @@ export async function bootGranularAV({
     });
     const outputGain = audioContext.createGain();
     outputGain.gain.value = 0.9;
+
+    if (!source || !inputSession.hasAudio) {
+      onStatus?.(`${inputSession.label} has no audio track. Visual granulation only.`);
+    }
 
     source?.connect(analyser);
     source?.connect(workletNode);
@@ -255,6 +260,7 @@ export async function bootGranularAV({
       audioGrainMs: glContext.getUniformLocation(nextUpdateProgram, 'u_audioGrainMs'),
       audioSprayMs: glContext.getUniformLocation(nextUpdateProgram, 'u_audioSprayMs'),
       audioPitchJitter: glContext.getUniformLocation(nextUpdateProgram, 'u_audioPitchJitter'),
+      interactionActive: glContext.getUniformLocation(nextUpdateProgram, 'u_interactionActive'),
       historyMaxAge: glContext.getUniformLocation(nextUpdateProgram, 'u_historyMaxAge'),
     };
     const displayUniforms = {
@@ -298,6 +304,7 @@ export async function bootGranularAV({
         glContext.texSubImage2D(glContext.TEXTURE_2D, 0, 0, 0, glContext.RGBA, glContext.UNSIGNED_BYTE, uploadCanvas);
       }
       historyWriteIndex = 0;
+      historyPrimed = false;
       lastHistoryUpload = Number.NEGATIVE_INFINITY;
     };
 
@@ -364,12 +371,24 @@ export async function bootGranularAV({
       if (now - lastHistoryUpload < preset.historyUploadIntervalMs) return;
       if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
       uploadContext.drawImage(video, 0, 0, renderWidth, renderHeight);
-      const texture = historyTextures[historyWriteIndex];
-      glContext.activeTexture(glContext.TEXTURE1 + historyWriteIndex);
-      glContext.bindTexture(glContext.TEXTURE_2D, texture);
       glContext.pixelStorei(glContext.UNPACK_FLIP_Y_WEBGL, 1);
-      glContext.texSubImage2D(glContext.TEXTURE_2D, 0, 0, 0, glContext.RGBA, glContext.UNSIGNED_BYTE, uploadCanvas);
-      historyWriteIndex = (historyWriteIndex + 1) % HISTORY_SLOTS;
+
+      if (!historyPrimed) {
+        for (let index = 0; index < HISTORY_SLOTS; index += 1) {
+          glContext.activeTexture(glContext.TEXTURE1 + index);
+          glContext.bindTexture(glContext.TEXTURE_2D, historyTextures[index]);
+          glContext.texSubImage2D(glContext.TEXTURE_2D, 0, 0, 0, glContext.RGBA, glContext.UNSIGNED_BYTE, uploadCanvas);
+        }
+        historyWriteIndex = 0;
+        historyPrimed = true;
+      } else {
+        const texture = historyTextures[historyWriteIndex];
+        glContext.activeTexture(glContext.TEXTURE1 + historyWriteIndex);
+        glContext.bindTexture(glContext.TEXTURE_2D, texture);
+        glContext.texSubImage2D(glContext.TEXTURE_2D, 0, 0, 0, glContext.RGBA, glContext.UNSIGNED_BYTE, uploadCanvas);
+        historyWriteIndex = (historyWriteIndex + 1) % HISTORY_SLOTS;
+      }
+
       lastHistoryUpload = now;
     };
 
@@ -399,6 +418,7 @@ export async function bootGranularAV({
       if (now - lastParamPost < PARAM_POST_INTERVAL_MS && interaction.clickImpulse < 0.8) return;
 
       const shape = getGranularShape(interaction, settings, freeze, rms, centroid);
+      const interactionActive = getInteractionActive(interaction);
 
       workletNode.port.postMessage({
         type: 'params',
@@ -415,6 +435,8 @@ export async function bootGranularAV({
           focusY: interaction.pointerY,
           burst: shape.burst,
           visualMode: getVisualModeValue(settings.visualMode),
+          interactionActive,
+          liveMonitor: activeInputSession.mode === 'camera' ? 0 : 1,
         },
       });
       lastParamPost = now;
@@ -439,6 +461,7 @@ export async function bootGranularAV({
       const centroid = cachedCentroid;
       const interaction = interactionRef.current;
       const settings = settingsRef.current;
+      const interactionActive = getInteractionActive(interaction);
       const freeze = clamp(settings.freeze + (interaction.down ? 0.22 : 0) + interaction.clickImpulse * 0.18, 0, 1);
       const shape = getGranularShape(interaction, settings, freeze, rms, centroid);
       const preset = getQualityPreset(settings);
@@ -513,6 +536,7 @@ export async function bootGranularAV({
       glContext.uniform1f(updateUniforms.audioGrainMs, shape.grainMs);
       glContext.uniform1f(updateUniforms.audioSprayMs, shape.sprayMs);
       glContext.uniform1f(updateUniforms.audioPitchJitter, shape.pitchJitter);
+      glContext.uniform1f(updateUniforms.interactionActive, interactionActive);
       glContext.uniform1f(updateUniforms.historyMaxAge, HISTORY_SLOTS - 1);
       glContext.drawArrays(glContext.TRIANGLES, 0, 3);
 
@@ -1062,6 +1086,10 @@ function getVisualFreezeSourceAge(
   const anchorDelayMs = baseDelayMs + shape.sprayMs * 0.4;
   const historySpanMs = Math.max(1, preset.historyUploadIntervalMs * (HISTORY_SLOTS - 1));
   return clamp(anchorDelayMs / historySpanMs, 0, 1);
+}
+
+function getInteractionActive(interaction: InteractionState) {
+  return clamp((interaction.down ? 1 : 0) + interaction.clickImpulse * 0.65, 0, 1);
 }
 
 function getQualityPreset(settings: GranularSettings) {

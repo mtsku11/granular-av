@@ -30,6 +30,7 @@ uniform float u_audioDensity;
 uniform float u_audioGrainMs;
 uniform float u_audioSprayMs;
 uniform float u_audioPitchJitter;
+uniform float u_interactionActive;
 uniform float u_historyMaxAge;
 
 const int HISTORY_COUNT = 8;
@@ -236,14 +237,16 @@ void main() {
     feedbackDispAmount = 0.01 + roughness * 0.012 + u_audioSprayMs * 0.00009;
   }
 
-  float grainCoverage = clamp(accumulated.a, 0.0, 1.0);
+  float grainCoverage = clamp(accumulated.a * 1.3 + 0.16, 0.0, 1.0);
   vec3 liveSource = sampleHistoryAge(0.0, uv);
-  vec3 granularColour = accumulated.rgb / max(accumulated.a, 0.001);
+  float baseHistoryAge = clamp(0.8 + u_audioSprayMs / 110.0 + u_freeze * 1.6, 0.0, u_historyMaxAge);
+  vec3 delayedBed = sampleHistoryAge(baseHistoryAge, uv);
+  vec3 granularColour = accumulated.rgb / max(accumulated.a, 0.03);
   float grainEnergy = clamp(accumulated.a * (0.5 + densityNorm * 0.38), 0.0, 1.65);
   float visualAmplitude = 0.78 + grainEnergy * 0.22 + densityNorm * 0.12;
   float luma = dot(granularColour, vec3(0.299, 0.587, 0.114));
   granularColour = mix(vec3(luma), granularColour, 1.0 + grainEnergy * 0.16) * visualAmplitude;
-  vec3 granular = mix(liveSource * (0.18 + u_intensity * 0.1), granularColour, grainCoverage);
+  vec3 granular = mix(delayedBed, granularColour, grainCoverage);
   vec3 feedbackSeed = texture(u_feedback, uv).rgb;
   vec2 feedbackVector = clamp((feedbackSeed.rg - 0.5) * 2.0, -1.0, 1.0);
   vec2 radial = normalize((uv - mix(pointer, click, clamp(u_clickImpulse, 0.0, 1.0))) + vec2(0.0001));
@@ -253,5 +256,6 @@ void main() {
   colour += vec3(0.08, 0.055, 0.02) * clickBloom + vec3(0.015, 0.04, 0.07) * pointerBloom;
   colour = mix(colour, colour.bgr * vec3(0.95, 1.02, 1.08), roughness * 0.12);
   colour *= 0.96 + localBloom * 0.22 + u_intensity * 0.08;
+  colour = mix(liveSource, colour, smoothstep(0.02, 0.18, u_interactionActive));
   outColor = vec4(colour, 1.0);
 }
